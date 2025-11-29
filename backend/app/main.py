@@ -1,5 +1,5 @@
 """Main FastAPI application for SmartAdvisor backend."""
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, Dict, List
@@ -12,6 +12,11 @@ from app.context_engine import ContextEngine
 from app.llm_service import LLMService
 from app.models import init_db, get_db, ConversationLog, ContextPreset, ConversationSession
 from app.logger import logger
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
+
+import os
+
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -19,6 +24,20 @@ app = FastAPI(
     description="Internal business assistant API",
     version="1.0.0"
 )
+
+api_router = APIRouter(prefix="/api")
+
+
+# FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "../../frontend/dist")
+# FRONTEND_DIR = os.path.abspath(FRONTEND_DIR)
+
+# INDEX_FILE = os.path.join(FRONTEND_DIR, "index.html")
+
+FRONTEND_DIR = os.environ.get("FRONTEND_DIR") or os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../frontend/dist")
+)
+INDEX_FILE = os.path.join(FRONTEND_DIR, "index.html")
+
 
 # CORS middleware
 app.add_middleware(
@@ -150,19 +169,24 @@ def _create_default_presets(db: Session):
         db.add(preset)
 
 
-@app.get("/")
+# @app.get("/")
+# async def root():
+#     """Root endpoint."""
+#     return {"message": "SmartAdvisor API is running", "version": "1.0.0"}
+
+@api_router.get("/")
 async def root():
     """Root endpoint."""
-    return {"message": "SmartAdvisor API is running", "version": "1.0.0"}
+    return FileResponse(INDEX_FILE)
 
 
-@app.get("/health")
+@api_router.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 
-@app.post("/api/query", response_model=QueryResponse)
+@api_router.post("/query", response_model=QueryResponse)
 async def process_query(request: QueryRequest, db: Session = Depends(get_db)):
     """
     Process a user query with optional context override.
@@ -234,13 +258,13 @@ async def process_query(request: QueryRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
 
 
-@app.get("/api/context")
+@api_router.get("/context")
 async def get_context():
     """Get the current business context."""
     return {"context": context_engine.get_context()}
 
 
-@app.post("/api/context")
+@api_router.post("/context")
 async def update_context(request: ContextUpdateRequest):
     """Update the business context dynamically."""
     try:
@@ -252,7 +276,7 @@ async def update_context(request: ContextUpdateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/api/context")
+@api_router.delete("/context")
 async def clear_context():
     """Clear the current business context."""
     context_engine.clear_context()
@@ -260,7 +284,7 @@ async def clear_context():
     return {"message": "Context cleared successfully"}
 
 
-@app.get("/api/presets", response_model=List[ContextPresetResponse])
+@api_router.get("/presets", response_model=List[ContextPresetResponse])
 async def get_presets(db: Session = Depends(get_db)):
     """Get all available context presets."""
     presets = db.query(ContextPreset).all()
@@ -277,7 +301,7 @@ async def get_presets(db: Session = Depends(get_db)):
     ]
 
 
-@app.post("/api/presets", response_model=ContextPresetResponse)
+@api_router.post("/presets", response_model=ContextPresetResponse)
 async def create_preset(preset: ContextPresetCreate, db: Session = Depends(get_db)):
     """Create a new context preset."""
     try:
@@ -304,7 +328,7 @@ async def create_preset(preset: ContextPresetCreate, db: Session = Depends(get_d
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/api/presets/{preset_name}/apply")
+@api_router.post("/presets/{preset_name}/apply")
 async def apply_preset(preset_name: str, db: Session = Depends(get_db)):
     """Apply a context preset."""
     preset = db.query(ContextPreset).filter(ContextPreset.name == preset_name).first()
@@ -316,7 +340,7 @@ async def apply_preset(preset_name: str, db: Session = Depends(get_db)):
     return {"message": f"Preset '{preset_name}' applied", "context": context_engine.get_context()}
 
 
-@app.get("/api/conversations/{session_id}", response_model=ConversationHistoryResponse)
+@api_router.get("/conversations/{session_id}", response_model=ConversationHistoryResponse)
 async def get_conversation_history(session_id: str, db: Session = Depends(get_db)):
     """Get conversation history for a session."""
     session = db.query(ConversationSession).filter(
@@ -333,7 +357,7 @@ async def get_conversation_history(session_id: str, db: Session = Depends(get_db
     )
 
 
-@app.delete("/api/conversations/{session_id}")
+@api_router.delete("/conversations/{session_id}")
 async def delete_conversation(session_id: str, db: Session = Depends(get_db)):
     """Delete a conversation session."""
     session = db.query(ConversationSession).filter(
@@ -347,6 +371,10 @@ async def delete_conversation(session_id: str, db: Session = Depends(get_db)):
     db.commit()
     logger.info(f"Deleted session: {session_id}")
     return {"message": "Session deleted successfully"}
+
+app.include_router(api_router)   # <- important: include router BEFORE mounting static files
+
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
 
 
 if __name__ == "__main__":
