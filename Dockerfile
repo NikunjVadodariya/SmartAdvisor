@@ -49,5 +49,10 @@
     # e.g. FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../frontend_dist"))
     #
     # Start uvicorn
-    CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    COPY entrypoint.sh /app/entrypoint.sh
+    RUN chmod +x /app/entrypoint.sh
     
+    ENV FRONTEND_DIR=$(pwd)/../frontend/dist
+    
+    ENTRYPOINT ["/app/entrypoint.sh"]
+    CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -99,7 +99,3 @@ Navigate to `http://localhost:5173` and start using SmartAdvisor!
 - Check [ARCHITECTURE.md](ARCHITECTURE.md) for system design details
 - Customize context presets for your business needs
 
-## Production Deployment
-
-For production deployment, see the README.md section on "Deployment".
-
