@@ -184,6 +184,15 @@ AZURE_OPENAI_ENDPOINT=http://localhost:11434/v1
 OPENAI_MODEL=llama2
 ```
 
+**OpenRouter (Unified access to multiple LLM models):**
+```env
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-v1-...
+OPENROUTER_MODEL=openai/gpt-3.5-turbo
+```
+
+See [OpenRouter Setup Guide](backend/OPENROUTER_SETUP.md) for detailed instructions.
+
 ## Project Structure
 
 ```

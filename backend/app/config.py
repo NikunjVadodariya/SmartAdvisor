@@ -21,6 +21,11 @@ class Settings:
         self.azure_openai_deployment_name: str = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "")
         self.azure_openai_api_version: str = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
         
+        # OpenRouter Configuration
+        self.openrouter_api_key: str = os.getenv("OPENROUTER_API_KEY", "")
+        self.openrouter_model: str = os.getenv("OPENROUTER_MODEL", "openai/gpt-3.5-turbo")
+        self.openrouter_base_url: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        
         # Server Configuration
         self.host: str = os.getenv("HOST", "0.0.0.0")
         self.port: int = int(os.getenv("PORT", "8000"))

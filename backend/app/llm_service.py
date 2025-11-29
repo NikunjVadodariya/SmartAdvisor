@@ -39,6 +39,22 @@ class LLMService:
             self.client = openai
             self.model = settings.openai_model
             
+        elif self.provider == "openrouter":
+            # OpenRouter - Unified access to multiple LLM models
+            # OpenRouter uses OpenAI-compatible API
+            if not settings.openrouter_api_key:
+                raise ValueError("OPENROUTER_API_KEY is required when using OpenRouter provider")
+            # Set OpenRouter endpoint and API key
+            openai.api_base = settings.openrouter_base_url
+            openai.api_key = settings.openrouter_api_key
+            # Store headers for OpenRouter requests
+            self.openrouter_headers = {
+                "HTTP-Referer": "https://github.com/nikunjvadodariya/smartadvisor",  # Optional
+                "X-Title": "SmartAdvisor"  # Optional
+            }
+            self.client = openai
+            self.model = settings.openrouter_model
+            
         else:
             raise ValueError(f"Unsupported LLM provider: {self.provider}")
     
@@ -70,15 +86,36 @@ class LLMService:
             if max_tokens:
                 request_params["max_tokens"] = max_tokens
             
-            # Run the synchronous call in executor to avoid blocking
-            # OpenAI SDK 0.27.x uses ChatCompletion.create
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.client.ChatCompletion.create(**request_params)
-            )
-            
-            # Extract only the response content, no metadata
-            return response.choices[0].message.content.strip()
+            # For OpenRouter, use requests library to add custom headers
+            if self.provider == "openrouter":
+                import requests
+                
+                def make_openrouter_request():
+                    response = requests.post(
+                        f"{settings.openrouter_base_url}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {settings.openrouter_api_key}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://github.com/nikunjvadodariya/smartadvisor",
+                            "X-Title": "SmartAdvisor"
+                        },
+                        json=request_params
+                    )
+                    response.raise_for_status()
+                    return response.json()
+                
+                result = await loop.run_in_executor(None, make_openrouter_request)
+                # Extract response in OpenAI format
+                return result["choices"][0]["message"]["content"].strip()
+            else:
+                # Run the synchronous call in executor to avoid blocking
+                # OpenAI SDK 0.27.x uses ChatCompletion.create
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: self.client.ChatCompletion.create(**request_params)
+                )
+                # Extract only the response content, no metadata
+                return response.choices[0].message.content.strip()
             
         except Exception as e:
             raise Exception(f"LLM service error: {str(e)}")
