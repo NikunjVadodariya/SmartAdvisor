@@ -264,7 +264,17 @@ async def clear_context():
 async def get_presets(db: Session = Depends(get_db)):
     """Get all available context presets."""
     presets = db.query(ContextPreset).all()
-    return presets
+    return [
+        ContextPresetResponse(
+            id=preset.id,
+            name=preset.name,
+            description=preset.description,
+            context_data=preset.context_data,
+            created_at=preset.created_at,
+            updated_at=preset.updated_at
+        )
+        for preset in presets
+    ]
 
 
 @app.post("/api/presets", response_model=ContextPresetResponse)
@@ -280,7 +290,14 @@ async def create_preset(preset: ContextPresetCreate, db: Session = Depends(get_d
         db.commit()
         db.refresh(db_preset)
         logger.info(f"Created preset: {preset.name}")
-        return db_preset
+        return ContextPresetResponse(
+            id=db_preset.id,
+            name=db_preset.name,
+            description=db_preset.description,
+            context_data=db_preset.context_data,
+            created_at=db_preset.created_at,
+            updated_at=db_preset.updated_at
+        )
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating preset: {str(e)}")

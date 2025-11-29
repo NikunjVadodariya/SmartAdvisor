@@ -28,7 +28,8 @@ class Settings:
         self.cors_origins: List[str] = [origin.strip() for origin in cors_origins_str.split(",")]
         
         # Database Configuration
-        self.database_url: str = os.getenv("DATABASE_URL", "sqlite:///./smartadvisor.db")
+        # Heroku provides DATABASE_URL automatically, fallback to SQLite for local dev
+        self.database_url: str = os.getenv("DATABASE_URL") or os.getenv("HEROKU_DATABASE_URL") or "sqlite:///./smartadvisor.db"
         
         # Logging Configuration
         self.log_level: str = os.getenv("LOG_LEVEL", "INFO")
